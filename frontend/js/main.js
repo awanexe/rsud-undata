@@ -59,10 +59,35 @@ function logout(showMessage=true) {
   if (state.pollHandle) clearInterval(state.pollHandle);
   $('#login-overlay').hidden = false; $('#logout-button').hidden = true;
   $('#user-chip').innerHTML = '<span class="avatar">U</span><span><b>Mode publik</b><small>Monitoring</small></span>';
+  if ($('#profile-select')) loadLoginProfiles();
   if (showMessage) toast('Anda telah keluar.');
 }
-async function login(username,password) {
-  const data = await api('login',{username,password},false);
+async function loadLoginProfiles() {
+  const select = $('#profile-select');
+  const button = $('#profile-login-button');
+  select.disabled = true;
+  button.disabled = true;
+  select.innerHTML = '<option value="">Memuat daftar profil...</option>';
+  try {
+    const data = await api('getLoginProfiles', {}, false);
+    const profiles = data.profiles || [];
+    select.innerHTML = '<option value="">Pilih profil pengguna</option>' +
+      profiles.map(profile => `<option value="${esc(profile.staff_id)}">${esc(profile.name)} — ${profile.access_type === 'ADMIN' ? 'Administrator' : 'Petugas'}</option>`).join('');
+    select.disabled = profiles.length === 0;
+    button.disabled = profiles.length === 0;
+    if (!profiles.length) {
+      select.innerHTML = '<option value="">Belum ada profil aktif</option>';
+      $('#login-error').textContent = 'Belum ada profil aktif. Hubungi administrator untuk menyiapkan profil.';
+    } else {
+      $('#login-error').textContent = '';
+    }
+  } catch (error) {
+    select.innerHTML = '<option value="">Gagal memuat profil</option>';
+    $('#login-error').textContent = error.message;
+  }
+}
+async function login(staffId) {
+  const data = await api('login',{staff_id:staffId},false);
   state.token = data.token; sessionStorage.setItem('undata_token',data.token);
   setLoggedIn(data.user); await loadAll(); startPolling(); setView('overview');
 }
@@ -168,7 +193,8 @@ function updateClock() {
   $('#public-date').textContent = now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 }
 function bindEvents() {
-  $('#login-form').addEventListener('submit',async e=>{e.preventDefault();const form=new FormData(e.currentTarget);$('#login-error').textContent='';try{await login(form.get('username'),form.get('password'));}catch(error){$('#login-error').textContent=error.message;}});
+  $('#login-form').addEventListener('submit',async e=>{e.preventDefault();const staffId=$('#profile-select').value;$('#login-error').textContent='';if(!staffId){$('#login-error').textContent='Silakan pilih profil terlebih dahulu.';return;}try{await login(staffId);}catch(error){$('#login-error').textContent=error.message;}});
+  $('#profile-select').addEventListener('change',()=>{$('#profile-login-button').disabled=!$('#profile-select').value;});
   $('#continue-public').addEventListener('click',openPublic);
   $('#open-public').addEventListener('click',openPublic); $('#exit-public').addEventListener('click',closePublic);
   $('#logout-button').addEventListener('click',()=>logout());
@@ -195,6 +221,7 @@ async function init() {
   } else {
     $('#login-overlay').hidden = false;
     try { const data = await api('getPublicQueue',{},false); state.poli = data.poli || []; } catch {}
+    await loadLoginProfiles();
   }
   refreshIcons();
 }

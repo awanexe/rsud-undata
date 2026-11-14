@@ -5,7 +5,7 @@
  * Required Script Property:
  *   SPREADSHEET_ID = ID Google Spreadsheet database
  *
- * Run setupDatabase() once, then createInitialAdmin(username, password, name).
+ * Run setupDatabase() once, then createInitialAdmin(name). Profiles are selected without passwords.
  */
 
 const APP = Object.freeze({
@@ -29,7 +29,6 @@ const APP = Object.freeze({
   },
   ALLOWED_ACCESS: ['ADMIN', 'STAFF'],
   ALLOWED_QUEUE_STATUSES: ['WAITING', 'CALLED', 'SERVING', 'SKIPPED', 'COMPLETED'],
-  PASSWORD_ITERATIONS: 20000
 });
 
 /* ============================== API ENTRY ============================== */
@@ -105,6 +104,7 @@ function jsonResponse(value) {
 function routeAction_(action, payload, token) {
   // Endpoint publik hanya mengembalikan nomor antrean dan informasi poli.
   if (action === 'getPublicQueue') return getPublicQueue_();
+  if (action === 'getLoginProfiles') return getLoginProfiles_();
   if (action === 'login') return login_(payload);
 
   if (action === 'logout') {
@@ -313,148 +313,78 @@ function seedDefaultPoli_() {
 
 /**
  * Jalankan sekali dari editor Apps Script untuk membuat administrator pertama.
- * Password minimal 12 karakter. Jangan menyimpan password produksi di source code.
+ * Metode akses dashboard menggunakan pemilihan profil tanpa password.
  */
-function createInitialAdmin(username, password, name) {
-  const cleanUsername = normalizeUsername_(username);
-  const cleanPassword = validatePassword_(password);
-
-  if (readRows_('Staff').some(staff => staff.access_type === 'ADMIN')) {
-    throw new Error('Administrator sudah tersedia.');
+function createInitialAdmin(name) {
+  if (readRows_('Staff').some(staff => staff.access_type === 'ADMIN' && staff.status === 'ACTIVE')) {
+    throw new Error('Administrator aktif sudah tersedia.');
   }
 
-  const record = createStaffRecord_(cleanUsername, cleanPassword, name || 'Administrator RS Undata', 'ADMIN');
-  appendRecord_('Staff', record);
-  return 'Administrator awal berhasil dibuat.';
+  appendRecord_('Staff', createStaffRecord_(name || 'Administrator RS Undata', 'ADMIN'));
+  return 'Profil administrator berhasil dibuat.';
 }
 
 /**
- * Jalankan secara manual oleh pengelola dari editor Apps Script untuk menambah akun.
+ * Jalankan manual dari Apps Script untuk menambah profil petugas.
  * accessType hanya ADMIN atau STAFF.
  */
-function createStaffAccount(username, password, name, accessType) {
-  const cleanUsername = normalizeUsername_(username);
-  const cleanPassword = validatePassword_(password);
+function createStaffAccount(name, accessType) {
   const role = String(accessType || 'STAFF').toUpperCase();
-
   if (APP.ALLOWED_ACCESS.indexOf(role) < 0) {
     throw new Error('accessType hanya boleh ADMIN atau STAFF.');
   }
-  if (readRows_('Staff').some(staff => String(staff.username).toLowerCase() === cleanUsername)) {
-    throw new Error('Username sudah digunakan.');
-  }
 
-  appendRecord_('Staff', createStaffRecord_(cleanUsername, cleanPassword, name || cleanUsername, role));
-  return 'Akun ' + role + ' berhasil dibuat.';
+  const cleanName = String(name || '').trim().slice(0, 100);
+  if (!cleanName) throw new Error('Nama profil wajib diisi.');
+  const duplicate = readRows_('Staff').some(staff =>
+    String(staff.name).trim().toLowerCase() === cleanName.toLowerCase() &&
+    staff.status === 'ACTIVE'
+  );
+  if (duplicate) throw new Error('Nama profil aktif sudah digunakan.');
+
+  appendRecord_('Staff', createStaffRecord_(cleanName, role));
+  return 'Profil ' + role + ' berhasil dibuat.';
 }
 
-function normalizeUsername_(username) {
-  const value = String(username || '').trim().toLowerCase();
-  if (!/^[a-z0-9._-]{3,80}$/.test(value)) {
-    throw new Error('Username harus 3–80 karakter dan hanya berisi huruf, angka, titik, garis bawah, atau tanda hubung.');
-  }
-  return value;
-}
-
-function validatePassword_(password) {
-  const value = String(password || '');
-  if (value.length < 12 || value.length > 200) {
-    throw new Error('Password harus memiliki panjang 12–200 karakter.');
-  }
-  return value;
-}
-
-function createStaffRecord_(username, password, name, accessType) {
-  const salt = Utilities.getUuid() + Utilities.getUuid();
+function createStaffRecord_(name, accessType) {
   return {
     staff_id: makeId_('STAFF'),
-    name: String(name || username).trim().slice(0, 100),
-    username: username,
-    password_hash: hashPassword_(password, salt),
+    name: String(name || 'Pengguna').trim().slice(0, 100),
+    // Kolom username dan password_hash dipertahankan agar kompatibel
+    // dengan header Spreadsheet lama, tetapi tidak digunakan untuk login.
+    username: '',
+    password_hash: '',
     access_type: accessType,
     status: 'ACTIVE',
     created_at: nowIso_()
   };
 }
 
-/**
- * PBKDF2-HMAC-SHA256 dengan salt acak dan iterasi.
- * Catatan: untuk layanan rumah sakit berproduksi tinggi, pertimbangkan IdP khusus.
- */
-function hashPassword_(password, salt) {
-  const iterations = APP.PASSWORD_ITERATIONS;
-  const saltBytes = Utilities.newBlob(salt).getBytes();
-  const block = saltBytes.concat([0, 0, 0, 1]);
-  let u = Utilities.computeHmacSha256Signature(block, password, Utilities.Charset.UTF_8);
-  const derived = u.slice();
+function getLoginProfiles_() {
+  const profiles = readRows_('Staff')
+    .filter(staff => staff.status === 'ACTIVE' && APP.ALLOWED_ACCESS.indexOf(staff.access_type) >= 0)
+    .map(staff => ({
+      staff_id: staff.staff_id,
+      name: staff.name,
+      access_type: staff.access_type
+    }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
 
-  for (let i = 1; i < iterations; i++) {
-    u = Utilities.computeHmacSha256Signature(u, password);
-    for (let j = 0; j < derived.length; j++) {
-      derived[j] = (derived[j] ^ u[j]);
-    }
-  }
-
-  return 'PBKDF2-SHA256$' + iterations + '$' + salt + '$' + bytesToHex_(derived);
-}
-
-function verifyPassword_(password, storedHash) {
-  const parts = String(storedHash || '').split('$');
-  if (parts.length !== 4 || parts[0] !== 'PBKDF2-SHA256') return false;
-
-  const iterations = Number(parts[1]);
-  if (!Number.isInteger(iterations) || iterations < 1000 || iterations > 100000) return false;
-
-  const expected = parts[3];
-  const calculated = hashPasswordWithIterations_(password, parts[2], iterations);
-  return constantTimeEquals_(calculated, expected);
-}
-
-function hashPasswordWithIterations_(password, salt, iterations) {
-  const saltBytes = Utilities.newBlob(salt).getBytes().concat([0, 0, 0, 1]);
-  let u = Utilities.computeHmacSha256Signature(saltBytes, password, Utilities.Charset.UTF_8);
-  const derived = u.slice();
-
-  for (let i = 1; i < iterations; i++) {
-    u = Utilities.computeHmacSha256Signature(u, password);
-    for (let j = 0; j < derived.length; j++) derived[j] = derived[j] ^ u[j];
-  }
-  return bytesToHex_(derived);
-}
-
-function bytesToHex_(bytes) {
-  return bytes.map(byte => ('0' + ((byte + 256) % 256).toString(16)).slice(-2)).join('');
-}
-
-function constantTimeEquals_(a, b) {
-  a = String(a);
-  b = String(b);
-  if (a.length !== b.length) return false;
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) difference |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return difference === 0;
+  return { profiles: profiles };
 }
 
 function login_(payload) {
-  const username = normalizeUsername_(payload.username);
-  const password = String(payload.password || '');
-  if (!password || password.length > 200) {
-    throw apiError_('Username atau password salah.', 'UNAUTHORIZED');
-  }
+  const staffId = requiredText_(payload.staff_id, 100, 'Profil pengguna');
+  const staff = findRecord_('Staff', 'staff_id', staffId);
 
-  const staff = readRows_('Staff').find(record =>
-    String(record.username).toLowerCase() === username && record.status === 'ACTIVE'
-  );
-
-  if (!staff || !verifyPassword_(password, staff.password_hash)) {
-    throw apiError_('Username atau password salah.', 'UNAUTHORIZED');
+  if (!staff || staff.status !== 'ACTIVE' || APP.ALLOWED_ACCESS.indexOf(staff.access_type) < 0) {
+    throw apiError_('Profil tidak ditemukan atau sudah tidak aktif.', 'UNAUTHORIZED');
   }
 
   const token = Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid();
   const user = {
     staff_id: staff.staff_id,
     name: staff.name,
-    username: staff.username,
     access_type: staff.access_type
   };
 

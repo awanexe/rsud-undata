@@ -2,7 +2,7 @@
  * Rumah Sakit Undata — Vercel Serverless API Proxy
  *
  * Required Vercel Environment Variable:
- *   GAS_WEB_APP_URL=https://script.google.com/macros/s/AKfycbw_I4eMPrPFla4jyDX4v7c-1umMw2WX1ALvVDBroKfj2HhOftNy41j0oJZXaNgdKTHTGg/exec
+ *   GAS_WEB_APP_URL=https://script.google.com/macros/s/DEPLOYMENT_ID/exec
  *
  * Node.js runtime with global fetch (Node.js 18+).
  */
@@ -12,6 +12,7 @@ const REQUEST_TIMEOUT_MS = 25000;
 
 const ALLOWED_ACTIONS = new Set([
   'getPublicQueue',
+  'getLoginProfiles',
   'login',
   'logout',
   'validateSession',
