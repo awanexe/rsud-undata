@@ -91,34 +91,40 @@ Status antrean yang digunakan:
 
 **Penting:** Pada versi ini belum ada form/API pendaftaran antrean pasien. Data antrean harus dimasukkan melalui proses pendaftaran terpisah atau integrasi yang mengisi sheet `Queues` dengan skema di atas. Jangan memasukkan nama lengkap, diagnosis, resep, atau rekam medis ke dashboard ini.
 
-## 4. Membuat akun administrator dan petugas
+## 4. Membuat profil administrator dan petugas
 
-Setelah `setupDatabase` berhasil:
+Aplikasi menggunakan metode masuk dengan memilih profil dari dropdown, tanpa username dan password.
 
-1. Di editor Apps Script, pilih fungsi `createInitialAdmin`.
-2. Isi argumen pemanggilan dengan username, password kuat minimal 12 karakter, dan nama administrator.
-3. Jalankan fungsi satu kali. Contoh format pemanggilan manual:
+Setelah `setupDatabase` berhasil, buat profil administrator pertama melalui editor Apps Script:
 
-   ```javascript
-   createInitialAdmin('adminundata', 'GantiDenganPasswordKuat123!', 'Administrator Undata');
-   ```
+```javascript
+function provisionFirstAdmin() {
+  createInitialAdmin('Administrator Rumah Sakit Undata');
+}
+```
 
-4. Untuk membuat akun petugas tambahan, jalankan:
+Jalankan `provisionFirstAdmin()` satu kali. Setelah berhasil, fungsi sementara tersebut dapat dihapus.
 
-   ```javascript
-   createStaffAccount('petugas01', 'GantiDenganPasswordKuat123!', 'Petugas Poli Umum', 'STAFF');
-   ```
+Untuk membuat profil petugas tambahan:
 
-5. Untuk administrator tambahan, argumen terakhir dapat diisi `'ADMIN'`.
+```javascript
+function provisionStaff() {
+  createStaffAccount('Petugas Poli Umum', 'STAFF');
+}
+```
 
-Jangan menggunakan contoh password di atas untuk sistem yang sebenarnya. Gunakan password unik dan simpan di password manager. Jangan menaruh password akun di repository atau membagikannya melalui chat.
+Untuk membuat administrator tambahan, gunakan `'ADMIN'` sebagai argumen kedua.
+
+Profil yang berstatus `ACTIVE` akan muncul pada dropdown login. Untuk menonaktifkan profil, ubah kolom `status` pada sheet `Staff` menjadi `INACTIVE`.
+
+**Peringatan keamanan:** Login dropdown tanpa password bukan autentikasi identitas. Siapa pun yang dapat membuka aplikasi dapat memilih profil administrator atau petugas. Metode ini hanya sesuai untuk demo, simulasi, atau lingkungan internal terbatas dengan kontrol akses jaringan/perangkat. Jangan gunakan untuk operasional rumah sakit atau data pasien nyata tanpa lapisan autentikasi yang kuat. Role admin pada dropdown tidak membuktikan bahwa pemilih benar-benar administrator.
 
 ## 5. Deploy Google Apps Script sebagai Web App
 
 1. Pada Apps Script, pilih **Deploy → New deployment**.
 2. Pilih tipe **Web app**.
 3. Atur **Execute as: Me**.
-4. Atur akses sesuai kebijakan organisasi dan kebutuhan integrasi. Proxy membutuhkan akses untuk mengirim request ke Web App; endpoint login tetap melakukan autentikasi aplikasi. Jangan menganggap URL Web App sebagai mekanisme autentikasi.
+4. Atur akses sesuai kebijakan organisasi dan kebutuhan integrasi. Proxy membutuhkan akses untuk mengirim request ke Web App. Endpoint login hanya membuat sesi berdasarkan profil yang dipilih; metode ini tidak memverifikasi identitas pengguna.
 5. Klik **Deploy**, selesaikan otorisasi, lalu salin URL Web App yang berakhiran `/exec`.
 6. Simpan URL tersebut untuk konfigurasi Vercel.
 
@@ -183,7 +189,8 @@ Frontend menggunakan `POST /api/proxy` dengan format:
 
 | Action | Keterangan |
 |---|---|
-| `login` | Autentikasi admin/petugas |
+| `getLoginProfiles` | Daftar profil aktif untuk dropdown login |
+| `login` | Membuat sesi berdasarkan profil yang dipilih (tanpa password) |
 | `logout` | Mengakhiri sesi |
 | `validateSession` | Memvalidasi sesi |
 | `getDashboard` | Statistik dan ringkasan antrean |
@@ -230,7 +237,7 @@ Frontend melakukan polling berkala (sekitar 5 detik untuk data dashboard). Perub
 - Jangan menyimpan rekam medis, diagnosis, resep, NIK, atau data sensitif lain dalam aplikasi antrean ini.
 - Gunakan kode antrean yang tidak mengungkap identitas pasien.
 - Batasi akses Spreadsheet dan Apps Script hanya kepada pengelola yang berwenang.
-- Gunakan password unik dan kuat untuk setiap akun.
+- Karena login hanya menggunakan dropdown profil, batasi aplikasi pada demo atau jaringan/perangkat internal; jangan menganggap pemilihan profil sebagai autentikasi.
 - Jangan commit file `.env`, token sesi, password, atau kredensial.
 - Periksa kebijakan akses Web App Apps Script dan konfigurasi organisasi sebelum dipakai.
 - Spreadsheet dan Apps Script bukan pengganti sistem antrean rumah sakit dengan kontrol akses, audit, ketersediaan, dan perlindungan data tingkat produksi.

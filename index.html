@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b625e">
+  <meta name="description" content="Dashboard monitoring dan pengelolaan antrean Rumah Sakit Undata.">
+  <title>Rumah Sakit Undata — Queue Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <script src="./js/main.js" defer></script>
+</head>
+<body>
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+  <main id="app-shell" class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="Rumah Sakit Undata">
+        <span class="brand-mark"><i data-lucide="heart-pulse"></i></span>
+        <span><strong>RS UNDATA</strong><small>Queue Command Center</small></span>
+      </a>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav" id="side-nav">
+        <button class="nav-item active" data-view="overview"><i data-lucide="layout-dashboard"></i> Overview</button>
+        <button class="nav-item" data-view="queue"><i data-lucide="list-ordered"></i> Manajemen Antrean</button>
+        <button class="nav-item" data-view="poli"><i data-lucide="hospital"></i> Poli & Layanan</button>
+        <button class="nav-item" data-view="history"><i data-lucide="history"></i> Riwayat Pelayanan</button>
+        <button class="nav-item" data-view="settings" data-admin-only><i data-lucide="settings"></i> Pengaturan</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="system-card"><span class="pulse-dot"></span><span><b>Sistem antrean</b><small id="connection-label">Menghubungkan…</small></span></div>
+        <button class="nav-item public-link" id="open-public"><i data-lucide="monitor"></i> Tampilan ruang tunggu</button>
+        <button class="nav-item" id="logout-button" hidden><i data-lucide="log-out"></i> Keluar</button>
+      </div>
+    </aside>
+
+    <section class="main-area">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="menu-toggle" aria-label="Buka navigasi"><i data-lucide="menu"></i></button>
+        <div class="breadcrumb"><span>Rumah Sakit Undata</span><i data-lucide="chevron-right"></i><b id="page-title">Overview</b></div>
+        <div class="top-actions">
+          <span class="date-label" id="today-label"></span>
+          <span class="live-pill"><span class="pulse-dot"></span> LIVE</span>
+          <div class="user-chip" id="user-chip"><span class="avatar">U</span><span><b>Mode publik</b><small>Monitoring</small></span></div>
+        </div>
+      </header>
+
+      <section class="content" id="staff-content">
+        <section class="welcome-row">
+          <div><p class="eyebrow">HOSPITAL QUEUE OVERVIEW</p><h1>Selamat datang di <span>Undata.</span></h1><p class="muted">Pantau alur pelayanan dan kondisi antrean rumah sakit hari ini.</p></div>
+          <div class="welcome-actions"><button class="button button-secondary" id="refresh-button"><i data-lucide="refresh-cw"></i> Perbarui</button><button class="button button-primary" id="call-next-top"><i data-lucide="megaphone"></i> Panggil berikutnya</button></div>
+        </section>
+
+        <section class="stats-grid" id="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span>Menunggu</span><span class="stat-icon amber"><i data-lucide="hourglass"></i></span></div><strong id="stat-waiting">—</strong><small>Pasien dalam antrean</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Sedang dilayani</span><span class="stat-icon teal"><i data-lucide="stethoscope"></i></span></div><strong id="stat-serving">—</strong><small>Pelayanan berlangsung</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Selesai hari ini</span><span class="stat-icon blue"><i data-lucide="check-circle-2"></i></span></div><strong id="stat-completed">—</strong><small>Pasien telah selesai</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Total antrean</span><span class="stat-icon violet"><i data-lucide="users"></i></span></div><strong id="stat-total">—</strong><small>Terdaftar hari ini</small></article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel now-panel">
+            <div class="panel-heading"><div><p class="eyebrow">NOW SERVING</p><h2>Antrean sedang dipanggil</h2></div><span class="status-badge status-serving">● Melayani</span></div>
+            <div class="now-content"><div class="now-number-wrap"><span class="now-poli" id="now-poli">Pilih poli</span><strong class="now-number" id="now-number">—</strong><span class="now-patient" id="now-patient">Belum ada antrean aktif</span></div><div class="now-meta"><div><small>Ruang pelayanan</small><b id="now-room">—</b></div><div><small>Waktu dipanggil</small><b id="now-called">—</b></div><div><small>Berikutnya</small><b id="next-number">—</b></div></div></div>
+            <div class="panel-actions"><button class="button button-secondary" id="skip-current"><i data-lucide="skip-forward"></i> Lewati</button><button class="button button-primary" id="complete-current"><i data-lucide="check"></i> Selesaikan pelayanan</button></div>
+          </article>
+          <article class="panel poli-panel"><div class="panel-heading"><div><p class="eyebrow">SERVICE STATUS</p><h2>Status poli</h2></div><button class="text-button" data-go="poli">Lihat semua <i data-lucide="arrow-up-right"></i></button></div><div class="poli-list" id="poli-status-list"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></article>
+        </section>
+
+        <section class="panel queue-panel"><div class="panel-heading"><div><p class="eyebrow">LIVE QUEUE</p><h2>Antrean terbaru</h2></div><button class="text-button" data-go="queue">Kelola antrean <i data-lucide="arrow-up-right"></i></button></div><div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Identitas</th><th>Poli</th><th>Waktu daftar</th><th>Status</th></tr></thead><tbody id="overview-queue-body"><tr><td colspan="5" class="empty-cell">Memuat antrean…</td></tr></tbody></table></div></section>
+      </section>
+
+      <section class="content view-page" id="queue-view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">QUEUE OPERATIONS</p><h1>Manajemen antrean</h1><p class="muted">Kelola pemanggilan dan status pelayanan pasien.</p></div><button class="button button-primary" id="call-next-page"><i data-lucide="megaphone"></i> Panggil berikutnya</button></div>
+        <div class="toolbar"><label class="search-box"><i data-lucide="search"></i><input id="queue-search" type="search" placeholder="Cari nomor atau kode pasien…"></label><select id="queue-poli-filter"><option value="">Semua poli</option></select><select id="queue-status-filter"><option value="">Semua status</option><option value="WAITING">Menunggu</option><option value="CALLED">Dipanggil</option><option value="SERVING">Dilayani</option><option value="SKIPPED">Dilewati</option><option value="COMPLETED">Selesai</option></select></div>
+        <section class="panel"><div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Kode pasien</th><th>Poli</th><th>Waktu daftar</th><th>Estimasi</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="queue-table-body"></tbody></table></div></section>
+      </section>
+
+      <section class="content view-page" id="poli-view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">CLINIC SERVICES</p><h1>Poli & layanan</h1><p class="muted">Pantau status operasional dan kapasitas layanan.</p></div><button class="button button-primary" id="add-poli-button" data-admin-only><i data-lucide="plus"></i> Tambah poli</button></div>
+        <div class="poli-cards" id="poli-cards"></div>
+      </section>
+
+      <section class="content view-page" id="history-view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">SERVICE RECORDS</p><h1>Riwayat pelayanan</h1><p class="muted">Catatan aktivitas antrean dan waktu pelayanan.</p></div></div>
+        <div class="toolbar"><input class="date-input" type="date" id="history-date"><button class="button button-secondary" id="history-refresh"><i data-lucide="refresh-cw"></i> Tampilkan</button></div>
+        <section class="panel"><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Nomor</th><th>Poli</th><th>Petugas</th><th>Aktivitas</th></tr></thead><tbody id="history-body"></tbody></table></div></section>
+      </section>
+
+      <section class="content view-page" id="settings-view" hidden>
+        <div class="page-heading"><div><p class="eyebrow">CONFIGURATION</p><h1>Pengaturan</h1><p class="muted">Konfigurasi operasional antrean rumah sakit.</p></div></div>
+        <section class="panel settings-panel"><h2>Pengaturan estimasi antrean</h2><p class="muted">Durasi rata-rata digunakan untuk menghitung perkiraan waktu tunggu.</p><div id="settings-poli-list"></div><button class="button button-primary" id="save-settings">Simpan perubahan</button></section>
+        <section class="panel settings-panel"><h2>Catatan keamanan</h2><p class="muted">Profil petugas dikelola melalui backend. Akses dashboard menggunakan pemilihan profil tanpa password; batasi akses jaringan/perangkat karena metode ini tidak memverifikasi identitas pengguna.</p></section>
+      </section>
+
+      <section class="login-overlay" id="login-overlay">
+        <form class="login-card" id="login-form"><div class="login-brand"><span class="brand-mark"><i data-lucide="heart-pulse"></i></span><div><b>RUMAH SAKIT UNDATA</b><small>Queue Command Center</small></div></div><p class="eyebrow">STAFF ACCESS</p><h1>Pilih profil</h1><p class="muted">Pilih profil petugas atau administrator untuk membuka dashboard.</p><label for="profile-select">Profil pengguna<select id="profile-select" name="staff_id" required><option value="">Memuat daftar profil...</option></select></label><p class="form-error" id="login-error" role="alert"></p><button class="button button-primary button-wide" id="profile-login-button" type="submit" disabled>Masuk ke dashboard <i data-lucide="arrow-right"></i></button><button class="text-button public-login" type="button" id="continue-public">Lanjutkan sebagai tampilan publik</button></form>
+      </section>
+    </section>
+  </main>
+
+  <section class="public-screen" id="public-screen" hidden>
+    <header class="public-header"><div class="brand"><span class="brand-mark"><i data-lucide="heart-pulse"></i></span><span><strong>RUMAH SAKIT UNDATA</strong><small>Informasi Antrean Pasien</small></span></div><div class="public-clock"><b id="public-time">--:--</b><span id="public-date">Memuat tanggal…</span></div><button class="icon-button" id="exit-public" aria-label="Tutup tampilan publik"><i data-lucide="x"></i></button></header>
+    <div class="public-main"><section class="public-feature"><p class="eyebrow">NOMOR ANTREAN DIPANGGIL</p><div class="public-current" id="public-current">—</div><h2 id="public-current-poli">Menunggu pemanggilan</h2><p id="public-current-room">Silakan perhatikan layar informasi</p></section><section class="public-side"><div class="public-next-card"><p class="eyebrow">ANTREAN BERIKUTNYA</p><div id="public-next-list" class="public-next-list"><span>Belum tersedia</span></div></div><div class="public-poli-card"><p class="eyebrow">STATUS PELAYANAN POLI</p><div id="public-poli-list"></div></div></section></div>
+    <footer class="public-footer"><span>Mohon menunggu hingga nomor antrean Anda dipanggil.</span><span id="public-updated">Memperbarui data…</span></footer>
+  </section>
+
+  <dialog class="modal" id="poli-modal"><form method="dialog" id="poli-form"><div class="modal-heading"><h2>Tambah poli</h2><button class="icon-button" value="cancel" aria-label="Tutup"><i data-lucide="x"></i></button></div><label>Nama poli<input name="poli_name" required maxlength="60"></label><label>Ruang pelayanan<input name="room" required maxlength="40"></label><label>Rata-rata pelayanan (menit)<input name="avg_service_minutes" type="number" min="1" max="240" value="15" required></label><div class="modal-actions"><button class="button button-secondary" value="cancel">Batal</button><button class="button button-primary" id="save-poli" type="submit">Simpan poli</button></div></form></dialog>
+</body>
+</html>
